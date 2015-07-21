@@ -5,6 +5,9 @@ require('./user'); //don't need var assignment, using bookshelf registry
 var Commit = db.Model.extend({
   tableName: 'commit',
   hasTimestamps: true,
+  tree: function() {
+    return this.hasOne('tree');
+  },
   repo: function() {
     return this.belongsTo('repo');
   },

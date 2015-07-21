@@ -15,42 +15,45 @@ var Tree = require('../fileTreeUtils');
 
 var Visualize = React.createClass({
   mixins : [Navigation],
-  getInitialTree: function () {
-    var firstSha = this.state.commits[this.state.commits.length-1].sha;
-    var repoFullName = this.props.params.repoOwner + '/' + this.props.params.repoName;
-    $.getJSON('repos/'+repoFullName+'/trees/'+firstSha, {accessToken: this.props.query.accessToken})
-    .success(function(tree) {
-      if (tree.msg === 'truncated') { //shouldn't happen much
-        this.transitionTo('/');
-        return console.log('Tree is too big, please try another repo.');
-      }
-      console.log('initial tree: ', tree);
-      this.setState({initialTree: tree});
-    }.bind(this));
-    //var tree = $.getJSON('tree/'+firstSha,{accessToken: this.props.query.accessToken});
-  },
-  getCommitsThenInitialTree: function () {
+  //getInitialTree: function () {
+    //var firstSha = this.state.commits[this.state.commits.length-1].sha;
+    //var repoFullName = this.props.params.repoOwner + '/' + this.props.params.repoName;
+    //$.getJSON('repos/'+repoFullName+'/trees/'+firstSha, {accessToken: this.props.query.accessToken})
+    //.success(function(tree) {
+      //if (tree.msg === 'truncated') { //shouldn't happen much
+        //this.transitionTo('/');
+        //return console.log('Tree is too big, please try another repo.');
+      //}
+      //console.log('initial tree: ', tree);
+      //this.setState({fileTree: tree.tree});
+    //}.bind(this));
+    ////var tree = $.getJSON('tree/'+firstSha,{accessToken: this.props.query.accessToken});
+  //},
+  getCommitsAndTree: function () {
     //console.log('accessToken now: ', this.props.query.accessToken);
     var repoFullName = this.props.params.repoOwner + '/' + this.props.params.repoName;
     $.getJSON('repos/'+repoFullName+'/commits', {accessToken: this.props.query.accessToken})
-    .success(function(commits) {
-      if (commits.msg === 'auth required') {
-        window.location = commits.authUrl; //transitionTo doesn't work for external urls
+    .success(function(data) {
+      if (data.msg === 'auth required') {
+        window.location = data.authUrl; //transitionTo doesn't work for external urls
       }
       //if (commits.msg === 'accessToken required') {
         //$.getJSON(commits.authUrl
         //window.location = commits.authUrl; //transitionTo doesn't work for external urls
         //return;
       //}
-      this.setState({commits: commits});
-      this.getInitialTree();
+      this.setState({commits: data.commits, tree: data.tree});
+      debugger;
+      //this.getInitialTree();
     }.bind(this));
   },
-
   getCurrentCommit: function () {
-    var repoFullName = this.props.params.repoName + '/' + this.props.params.repoOwner;
+    //var repoFullName = this.props.params.repoName + '/' + this.props.params.repoOwner;
+    debugger;
+    //return fred;
+    return this.state.commits[this.state.commitIndex];
     //var sha = this.state.commits[this.state.commitIndex].sha;
-    this.setState({currentCommit: this.state.commits[this.state.commitIndex]});
+    //this.setState({currentCommit: this.state.commits[this.state.commitIndex]});
     //$.getJSON('/repos/' + fullRepoName + '/commits/' + sha, function(commit) {
       //this.setState({currentCommit: commit});
     //}.bind(this));
@@ -65,11 +68,15 @@ var Visualize = React.createClass({
   },
 
   componentDidMount: function() {
-    this.getCommitsThenInitialTree();
-    var files = this.state.currentCommit.files;
-    for (var i = 0; i < files.length; i++) {
-      this.addFile(files[i].filename);
-    }
+    this.getCommitsAndTree();
+    //var files = this.state.currentCommit.files;
+    //var files = this.state.initialTree;
+    //files.forEach(function(file) {
+      //this.addFile(file.path);
+    //}.bind(this));
+    //for (var i = 0; i < files.length; i++) {
+      //this.addFile(files[i].filename);
+    //}
   },
 
   updateCommitIndex: function (index) {
@@ -81,31 +88,30 @@ var Visualize = React.createClass({
   },
 
   getInitialState: function() {
-    return {commits: [], commitIndex: 0, currentCommit: fred, currentPath: ['client', 'app', 'auth'], fileTree: {}};
+    return {commits: [], currentCommit: {}, commitIndex: 0, currentPath: ['client', 'app', 'auth'], fileTree: {}};
   },
 
   render: function () {
-    
     return (
       <Grid>
         <Row className='show-grid'>
-          <Col xs=12 md=12>
+          <Col xs={12} md={12}>
             <Path currentPath={this.state.currentPath} updateCurrentPath={this.updateCurrentPath}/>
           </Col>
         </Row>
 
         <Row className='show-grid'>
-          <Col xs=4 md=4>
+          <Col xs={4} md={4}>
             <Directory fileTree={this.state.fileTree} currentPath={this.state.currentPath} updateCurrentPath={this.updateCurrentPath}/>
           </Col>
-          <Col xs=8 md=8>
-            <Folder currentCommit={this.state.currentCommit} currentPath={this.state.currentPath} updateCurrentPath={this.updateCurrentPath}/>
-            {this.state.commits}
+          <Col xs={8} md={8}>
+            <Folder currentCommit={fred} currentPath={this.state.currentPath} updateCurrentPath={this.updateCurrentPath}/>
+            {this.state.commits[this.state.commitIndex]};
           </Col>
         </Row>
 
         <Row className='show-grid'>
-          <Col xs=12 md=12>
+          <Col xs={12} md={12}>
             <Playbar numberOfCommits={this.state.commits.length} commitIndex={this.state.commitIndex} updateCommitIndex={this.updateCommitIndex}/>
           </Col>
         </Row>

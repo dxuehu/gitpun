@@ -1,12 +1,12 @@
 var knex = require('knex')({
   client: 'pg',
   connection: 'postgres://127.0.0.1:5432/gitpun' || {
-      host: process.env.DB_PORT_5432_TCP_ADDR,
-      user: 'docker',
-      password: 'docker',
-      database: 'docker',
-      charset: 'utf8'
-    }
+    host: process.env.DB_PORT_5432_TCP_ADDR,
+    user: 'docker',
+    password: 'docker',
+    database: 'docker',
+    charset: 'utf8'
+  }
 });
 
 
@@ -48,6 +48,18 @@ bookshelf.knex.schema.hasTable('user').then(function(exists) {
                   commit.timestamps();
                 }).then(function (table) {
                   console.log('Created table: commit');
+                  bookshelf.knex.schema.hasTable('tree').then(function (exists) {
+                    if (exists) return;
+                    bookshelf.knex.schema.createTable('tree', function (tree) {
+                      tree.increments('id').primary();
+                      //tree.string('sha', 255).unique();
+                      tree.integer('commit_id').notNullable().references('commit.id');
+                      tree.text('files', 20000); //trees and blobs arr
+                      tree.timestamps();
+                    }).then(function (table) {
+                      console.log('Created table: tree');
+                    });
+                  })
                 })
                 .catch(function(error) {
                   console.log(error);

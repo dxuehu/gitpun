@@ -4,9 +4,11 @@ var fs = require('fs');
 //var $ = require('jquery');
 var _ = require('underscore');
 var Commit = require('../db/models/commit');
+var Tree = require('../db/models/tree');
 //var Commits = require('../db/collections/commits');
 var Repo = require('../db/models/repo');
 var Github = require('github-api');
+var treeUtils = require('../tree/treeUtils');
 
 var request = require('request');
 var rp = require('request-promise');
@@ -27,7 +29,7 @@ var setAccessToken = function(token) {
 //var github = new Github({token: access_token, auth: 'oauth'});
 //var repo = github.getRepo(repoOwner, repoName);
 //
-var getCommitsFromDb = Promise.promisify(function(repoFullName, callback) {
+var getCommitsAndTreeFromDb = Promise.promisify(function(repoFullName, callback) {
   new Repo({
     fullName : repoFullName
   }).fetch().then(function(dbRepo) {
@@ -38,8 +40,15 @@ var getCommitsFromDb = Promise.promisify(function(repoFullName, callback) {
     }
     dbRepo.commits().fetch().then(function(dbCommits) {
       var formattedCommits = _.pluck(dbCommits.models, 'attributes');
-      console.log('found repo commits in db, returning ', formattedCommits.length, ' commits');
-      callback(null, formattedCommits);
+      debugger;
+      dbCommits[0].tree().fetch()
+      .then(function(tree) {
+        debugger;
+        console.log('found repo commits in db, returning ', formattedCommits.length, ' commits and the tree');
+        callback(null, {commits: formattedCommits, tree: tree.model.attributes});
+      });
+      //new Commit({sha: formattedCommits[0].sha}).tree().model.attributes
+      //callback(null, {commits: formattedCommits, tree: formattedTree});
     });
   })
   .catch(function(error) {
@@ -101,6 +110,7 @@ var cleanCommitsDetailed = function(commits) {
     return {sha: commit.sha, committer: committer, date: commit.commit.committer.date, files: JSON.stringify(commit.files)}; //omg
   });
 };
+
 var visitEachCommit = function(shas, options) { //visit each commit, update commits array with more info about each commit
   var generalUrl = options.url;
   var commitsDetailed = _.map(shas, function(sha) {
@@ -114,7 +124,7 @@ var visitEachCommit = function(shas, options) { //visit each commit, update comm
   //console.log('pomirses: ', commitsDetailed);
   return Promise.all(commitsDetailed);
 };
-var getCommitsFromGithub = Promise.promisify(function(repoFullName, callback) {
+var getCommitsAndTreeFromGithub = Promise.promisify(function(repoFullName, callback) {
   console.log('trying to go to github');
   //var localLastCommitTime = Date.now(), pulledLastCommitTime, githubCommits = [];
   var options = { url: 'https://api.github.com/repos/' + repoFullName + '/commits', headers: { 'User-Agent': 'http://developer.github.com/v3/#user-agent-required' }, qs: {access_token: accessToken, per_page: 100} };
@@ -129,19 +139,32 @@ var getCommitsFromGithub = Promise.promisify(function(repoFullName, callback) {
     }
     console.log('commitsOverview.length = ', commitsOverview.length);
     //TODO handle if commitsOverview is empty
-    commitShas = getShas(commitsOverview).reverse(); //first thing in commitsOverview is the oldest commit
+    var commitShas = getShas(commitsOverview).reverse(); //first thing in commitsOverview is the oldest commit
     var commitOptions = { url: 'https://api.github.com/repos/' + repoFullName + '/commits/', headers: { 'User-Agent': 'http://developer.github.com/v3/#user-agent-required' }, qs: {access_token: accessToken} };
     //TODO DRY with above options
     visitEachCommit(commitShas, commitOptions)
     .then(function(commitsDetailed) {
       commitsDetailed = cleanCommitsDetailed(commitsDetailed);
-      callback(null, commitsDetailed);
+      //callback(null, commitsDetailed);
       return saveCommitsToDb(repoFullName, commitsDetailed);
     }).then(function(commits) {
       console.log('saved ' + commits.length + ' commits');
       //if (!commits) return res.status(500).end();
+      //getFirstCommitTree(commits[0]);
+      debugger;
+      return treeUtils.getInitialTreeFromGithub(commits[0].sha, {repoFullName: repoFullName, accessToken: accessToken});
+    }).then(function(tree) {
+      console.log('saving tree ', tree);
+      new Commit({sha: commits[0].sha}).fetch()
+      .then(function(firstCommit) {
+        //commits[0].tree = tree.tree;
+        debugger;
+        callback(null, {commits: commits, tree: tree.tree});
+        firstCommit.tree().create({files: tree.tree});
+      });
     }).catch(function(err) { //is this ok or must be at end?
-      console.error('Error visiting all commits for detailed info: ', err);
+      console.error('Error getting tree or visiting all commits for detailed info: ', err);
+      callback(err, null);
     }).catch(function(error) { //TODO many to many commits to repos relationship establish for forks
       console.log('error saving commits to db: ', error);
     });
@@ -150,5 +173,5 @@ var getCommitsFromGithub = Promise.promisify(function(repoFullName, callback) {
 
 module.exports = {
   setAccessToken: setAccessToken,
-  getCommitsFromDb: getCommitsFromDb,
-  getCommitsFromGithub: getCommitsFromGithub };
+  getCommitsAndTreeFromDb: getCommitsAndTreeFromDb,
+  getCommitsAndTreeFromGithub: getCommitsAndTreeFromGithub };

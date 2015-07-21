@@ -10,14 +10,19 @@ var accessToken;
 var setAccessToken = function(token) {
   accessToken = token;
 };
-var getInitialTreeFromGithub = Promise.promisify(function(commitSha, repoFullName, callback) {
+var getInitialTreeFromGithub = Promise.promisify(function(commitSha, params, callback) {
   console.log('trying to go to github for tree for commit ', commitSha);
-  var options = { url: 'https://api.github.com/repos/' + repoFullName + '/git/trees/' + commitSha, headers: { 'User-Agent': 'http://developer.github.com/v3/#user-agent-required' }, qs: {recursive: 1, per_page: 100} };
-  if (accessToken) options.qs.accessToken = accessToken; //TODO code repeated in commits, refactor to auth
-  request(options, function(error, response, body) { //TODO promisify
-    if (error) return callback(error, null);
+  debugger;
+  var options = { url: 'https://api.github.com/repos/' + params.repoFullName + '/git/trees/' + commitSha, headers: { 'User-Agent': 'http://developer.github.com/v3/#user-agent-required' }, qs: {recursive: 1, per_page: 100} };
+  if (params.accessToken) options.qs.accessToken = params.accessToken; //TODO code repeated in commits, refactor to auth
+  rp(options)
+  .then(function(body) {
     var tree = JSON.parse(body);
+    debugger;
+    if (tree.truncated || !tree.tree) return callback('truncated or no tree', null);
     callback(null, tree);
+  }).catch(function(err) {
+    callback(err, null);
   });
 });
 

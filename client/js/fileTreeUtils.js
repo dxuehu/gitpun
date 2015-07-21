@@ -1,3 +1,4 @@
+//refactor
 var addFile = function (tree, filePath) {
   var path = filePath.split('/');
   var currentFolder = tree;
