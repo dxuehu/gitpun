@@ -62,6 +62,7 @@ var Visualize = React.createClass({
     //});
     var firstCommit = true; //for now
     socket.on('gotCommits', function(commits) {
+      if (!Array.isArray(commits) || commits.length < 1) return this.transitionTo('/', null, {error: 'badRepo'}); //in case of server uncaught err
       commits = JSON.parse(commits);
       console.log('got socket commits: ', commits);
       commits.forEach(function(commit) {
